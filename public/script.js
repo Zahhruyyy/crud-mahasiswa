@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const formTitle = document.getElementById("formTitle");
   const alertMessage = document.getElementById("alertMessage");
   const mhsTableBody = document.getElementById("mhsTableBody");
+  const searchInput = document.getElementById("searchInput");
+  const totalMahasiswa = document.getElementById("totalMahasiswa");
 
   let listMahasiswa = []; // Menyimpan state data mahasiswa lokal untuk proses edit
 
@@ -40,33 +42,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (result.success) {
         listMahasiswa = result.data;
-        mhsTableBody.innerHTML = "";
-
-        if (listMahasiswa.length === 0) {
-          mhsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #64748b;">Belum ada data mahasiswa.</td></tr>`;
-          return;
-        }
-
-        listMahasiswa.forEach((mhs, index) => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${escapeHtml(mhs.nim)}</td>
-            <td>${escapeHtml(mhs.nama)}</td>
-            <td>${escapeHtml(mhs.jurusan)}</td>
-            <td>${escapeHtml(mhs.email)}</td>
-            <td>
-              <button class="btn-action btn-edit" data-id="${mhs.id}">Edit</button>
-              <button class="btn-action btn-delete" data-id="${mhs.id}">Hapus</button>
-            </td>
-          `;
-          mhsTableBody.appendChild(tr);
-        });
+        filterAndDisplay(searchInput.value);
+        updateCounter();
       }
     } catch (err) {
       console.error(err);
       showAlert("Gagal memuat data dari server", "error");
     }
+  };
+
+  // Fitur 1: Pencarian real-time menggunakan listMahasiswa.filter()
+  const filterAndDisplay = (query) => {
+    const filtered = listMahasiswa.filter(
+      (mhs) =>
+        mhs.nama.toLowerCase().includes(query.toLowerCase()) ||
+        mhs.nim.toLowerCase().includes(query.toLowerCase())
+    );
+
+    mhsTableBody.innerHTML = "";
+
+    if (filtered.length === 0) {
+      mhsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #64748b;">Tidak ada data yang cocok.</td></tr>`;
+      return;
+    }
+
+    filtered.forEach((mhs, index) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${escapeHtml(mhs.nim)}</td>
+        <td>${escapeHtml(mhs.nama)}</td>
+        <td>${escapeHtml(mhs.jurusan)}</td>
+        <td>${escapeHtml(mhs.email)}</td>
+        <td>
+          <button class="btn-action btn-edit" data-id="${mhs.id}">Edit</button>
+          <button class="btn-action btn-delete" data-id="${mhs.id}">Hapus</button>
+        </td>
+      `;
+      mhsTableBody.appendChild(tr);
+    });
+  };
+
+  // Fitur 3: Update counter total mahasiswa
+  const updateCounter = () => {
+    totalMahasiswa.textContent = `Total Mahasiswa Terdaftar: ${listMahasiswa.length} Orang`;
   };
 
   // 3. CREATE & UPDATE: Submit Formulir mhsForm
@@ -83,6 +102,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const isEdit = Boolean(id);
     const url = isEdit ? `/api/mahasiswa/${id}` : "/api/mahasiswa";
     const method = isEdit ? "PUT" : "POST";
+
+    // Fitur 2: Validasi NIM Duplikat di Frontend
+    const nimExists = listMahasiswa.some(
+      (m) => m.nim === payload.nim && (!isEdit || m.id !== Number(id))
+    );
+    if (nimExists) {
+      showAlert("NIM sudah terdaftar!");
+      return;
+    }
 
     try {
       const res = await fetch(url, {
@@ -157,6 +185,11 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   btnCancel.addEventListener("click", resetForm);
+
+  // Fitur 1: Event listener untuk pencarian real-time
+  searchInput.addEventListener("input", (e) => {
+    filterAndDisplay(e.target.value);
+  });
 
   // Ambil data pertama kali saat halaman dimuat
   loadMahasiswa();
